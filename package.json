@@ -1,0 +1,45 @@
+{
+  "name": "@decky.fx/node-server",
+  "version": "1.0.0",
+  "description": "A Zero Dependancy NodeJS Server",
+  "main": "dist/index.js",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "engines": {
+    "npm": ">=10.8.1",
+    "node": ">=20.16.0"
+  },
+  "scripts": {
+    "build": "rimraf ./dist && tsc",
+    "example": "cd example && npm run start",
+    "publish": "npm publish --access public",
+    "unpublish": "npm unpublish @decky.fx/node-server@1.0.3"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "keywords": [
+    "sea"
+  ],
+  "author": "Decky Fx <deckyfx@gmail.com>",
+  "license": "ISC",
+  "homepage": "https://github.com/deckyfx/sea-builder#readme",
+  "bugs": {
+    "url": "https://github.com/deckyfx/sea-builder/issues",
+    "email": "deckyfx@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deckyfx/sea-builder.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.4"
+  }
+}
