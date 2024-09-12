@@ -16,8 +16,8 @@
   "scripts": {
     "build": "rimraf ./dist && tsc",
     "example": "cd example && npm run start",
-    "publish": "npm publish --access public",
-    "unpublish": "npm unpublish @decky.fx/node-server@1.0.3"
+    "push": "npm publish --access public",
+    "down": "npm unpublish @decky.fx/node-server@1.0.3"
   },
   "files": [
     "dist/**/*"
