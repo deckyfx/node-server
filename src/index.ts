@@ -19,6 +19,8 @@ export const RequestType = {
 export const RequestMethod = {
   GET: "GET",
   POST: "POST",
+  PUT: "PUT",
+  DELETE: "DELETE",
 } as const;
 
 export type RequestType = ObjectValues<typeof RequestType>;
@@ -137,6 +139,14 @@ export function post(path: string, handler: RouteHandler) {
   router.push({ path, method: RequestMethod.POST, handler });
 }
 
+export function put(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.PUT, handler });
+}
+
+export function del(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.DELETE, handler });
+}
+
 export const server = http.createServer();
 
 export const template = renderTemplate;
@@ -155,6 +165,14 @@ export function redirect(res: http.ServerResponse, path: string) {
   res.end();
 }
 
+export function file(...paths: string[]) {
+  const data = resolveFile(path.join(...paths), "utf-8") as string | Error;
+  if (data instanceof Error) {
+    return "";
+  }
+  return data;
+}
+
 export function down() {
   UNDER_MAINTENANCE = true;
 }
@@ -163,13 +181,6 @@ export function up() {
   UNDER_MAINTENANCE = true;
 }
 
-export function file(...paths: string[]) {
-  const data = resolveFile(path.join(...paths), "utf-8") as string | Error;
-  if (data instanceof Error) {
-    return "";
-  }
-  return data;
-}
 
 function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   const queryString = req.url?.split("?")[1] || "";

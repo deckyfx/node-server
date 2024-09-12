@@ -1,8 +1,17 @@
-# Single Executable Application (SEA) Builder
+# Node-Server
 
 ## What is this?
 
-This is a script to build a SEA, the nodejs version 20 and higher exeperimental feature to compile nodejs scripts into one executable binary, visit [nodejs documentation](https://nodejs.org/api/single-executable-applications.html) for more info
+This is a simple nodejs server, it has zero dependancy!
+
+## Features
+
+- [x] zero dependancy
+- [x] basic routes handler
+- [x] serve static files
+- [x] read request query string and post body
+- [x] basic cookies and session
+- [x] basic template enggine
 
 ## Requirement
 
@@ -38,28 +47,141 @@ Install dependecies
 
 ## Latest Version
 
-1.0.4
+1.0.0
 
-## Running
+## Usage
 
-Just use command `npx @decky.fx/sea-builder@{latest_version}`
+Install with
 
-For Example
+`npm i @decky.fx/node-server`
 
-Just use command `npx @decky.fx/sea-builder@1.0.4`
+See example folder
 
-## Arguments
+```// * Import
+const { server, get } = require("@decky.fx/node-server");
 
-All these arguments are optional
-| **Argument** | **Default** | **Explanation** |
-|--------------|----------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| --skip-build | true | By default sea-builder will try to build your project, <br>pack it into single file, <br>then compile it into executable binary |
-| --name | package.json<br>`name` attribute | The final executable file name to be generated |
-| --entry-in | package.json `main` attribute | The entry point of your program, <br>ussualy it is the index.js |
-| --entry-out | index.js | The entry point of the program, <br>after it got packed by @vercel/ncc, before it get compiled
+// * Add route
+get("/", async (req, res, data) => {
+  text(res, "OK");
+  return true;
+});
 
-## Under the hood
+// * Start server
+server.listen(port, hostname, () => {
+  console.log(`Server running at http://${hostname}:${port}/`);
+});
 
-- This script uses node20 experimental feature of single executable application (sea)
-- This script uses posject to inject the codes, visit [nodejs/postject](https://github.com/nodejs/postject) for more info
-- This script uses ncc to pack the source code into single file, visit [vercel/ncc](https://github.com/vercel/ncc) for more info
+```
+
+## API
+
+### server
+
+The server object created by node:http
+
+### get(path: string, handler: RouteHandler)
+
+Add get route
+
+### post(path: string, handler: RouteHandler)
+
+Add post route
+
+### put(path: string, handler: RouteHandler)
+
+Add put route
+
+### del(path: string, handler: RouteHandler)
+
+Add delete route
+
+### up()
+
+Flag the server as up
+
+### down()
+
+Flag the server as down for maintenance
+
+### template(path: string, data: any): string
+
+Render template and generate string data of rendered template
+
+### text(res: http.ServerResponse, data: string)
+
+Send basic string to connected client
+
+### json(res: http.ServerResponse, data: any)
+
+Send basic string of JSON stringified data to connected client
+
+### file(...path_chunks: string[])
+
+Send static file contents to connected client
+
+### redirect(path: string)
+
+Redirect client to new path
+
+## RouteHandler: (req: http.IncomingMessage, res: http.ServerResponse, data: RequestData) => Promise<booelan>
+
+The callback that called when route is handled
+
+## RequestData
+
+Request data has the following properties
+
+```
+{
+  body?: Record<string, any>;
+  cookies?: Cookie;
+  error?: Error;
+  handle?: RouteHandler;
+  method: RequestMethod;
+  path: string;
+  qs?: Record<string, any>;
+  session?: Session;
+  status: number;
+  type: RequestType;
+}
+```
+
+## Cookie
+
+Cookie instance has the following methods
+
+### get<T extends any = BasicCookie>()
+
+Return all cookies
+
+### set(res: http.ServerResponse, name: string, value: any)
+
+Set a cookie
+
+### remove(res: http.ServerResponse, name: string)
+
+remove
+
+### clear(res: http.ServerResponse)
+
+clear all cookies
+
+## Session
+
+Session instance has the following methods
+
+### get<T extends any = BasicCookie>()
+
+Return all sessions
+
+### set(name: string, value: any)
+
+Set a session
+
+### remove(name: string)
+
+remove a session
+
+### clear()
+
+clear all sessions

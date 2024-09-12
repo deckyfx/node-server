@@ -36,10 +36,13 @@
     "type": "git",
     "url": "git+https://github.com/deckyfx/sea-builder.git"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.5.4",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.4"
+  },
+  "types": "./dist/index.d.ts",
+  "directories": {
+    "example": "example"
   }
 }
