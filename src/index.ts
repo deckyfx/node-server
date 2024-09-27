@@ -31,7 +31,7 @@ export type RouteHandler = (
   req: http.IncomingMessage,
   res: http.ServerResponse,
   data: RequestData
-) => Promise<boolean>;
+) => Promise<boolean | undefined | null | void>;
 
 export type RequestData = {
   body?: Record<string, any>;
@@ -181,7 +181,6 @@ export function up() {
   UNDER_MAINTENANCE = true;
 }
 
-
 function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   const queryString = req.url?.split("?")[1] || "";
   const qs = parseQueryString(queryString);
@@ -201,14 +200,15 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     const session = new Session(req, res);
     if (req.method === RequestMethod.GET) {
       request.emit("ready", req, res, {
-        cookies: cookies,
+        type: RequestType.ROUTE,
+        status: 200,
         handle: match.handler,
         method: req.method as RequestMethod,
-        path: req_route,
         qs: qs,
+        body: {},
+        cookies: cookies,
         session: session,
-        status: 200,
-        type: RequestType.ROUTE,
+        path: req_route,
       });
     } else if (req.method === RequestMethod.POST) {
       // Handle POST requests with form data
@@ -218,13 +218,15 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
           body += chunk.toString();
         } catch (error) {
           request.emit("ready", req, res, {
-            cookies: cookies,
-            error: new Error("Invalid request body"),
-            method: req.method as RequestMethod,
-            path: req_route || filePath,
-            session: session,
-            status: 400,
             type: RequestType.ERROR,
+            status: 400,
+            handle: match.handler,
+            method: req.method as RequestMethod,
+            qs: qs,
+            body: {},
+            cookies: cookies,
+            session: session,
+            path: req_route,
           });
           return;
         }
@@ -234,11 +236,14 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
         delete postData[""];
         request.emit("ready", req, res, {
           status: 200,
-          method: req.method as RequestMethod,
           type: RequestType.ROUTE,
-          path: req_route || filePath,
+          handle: match.handler,
+          method: req.method as RequestMethod,
           qs: qs,
           body: postData,
+          cookies: cookies,
+          session: session,
+          path: req_route,
         });
       });
     }
@@ -288,7 +293,7 @@ request.on(
     res: http.ServerResponse,
     data: RequestData
   ) => {
-    logWithId("route", data.type, data.status, data.path);
+    logWithId("ROUTING", `[${data.method}]`, data.type, data.status, data.path);
     switch (data.type) {
       case RequestType.ERROR:
         res.writeHead(data.status, { "Content-Type": "text/plain" });
@@ -307,7 +312,7 @@ request.on(
       case RequestType.ROUTE:
         try {
           const { handle, ...omit } = data;
-          const result = await data.handle?.(req, res, omit);
+          const result = await handle?.(req, res, omit);
           if (!result) {
             // * Do something?
           }
