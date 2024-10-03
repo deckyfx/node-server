@@ -1,6 +1,6 @@
 {
   "name": "@decky.fx/node-server",
-  "version": "1.0.1",
+  "version": "1.0.2-a",
   "description": "A Zero Dependancy NodeJS Server",
   "main": "dist/index.js",
   "os": [
@@ -11,13 +11,16 @@
   ],
   "engines": {
     "npm": ">=10.8.1",
-    "node": ">=20.16.0"
+    "node": ">=20.17.0",
+    "yarn": "^3.6.4"
   },
+  "packageManager": "yarn@3.6.4",
+  "engineStrict": true,
   "scripts": {
     "build": "rimraf ./dist && tsc",
-    "example": "cd example && npm run start",
+    "dev": "ts-node-dev --poll example/index.ts",
     "push": "npm publish --access public",
-    "down": "npm unpublish @decky.fx/node-server@1.0.0-c"
+    "down": "npm unpublish @decky.fx/node-server@1.0.2"
   },
   "files": [
     "dist/**/*"
@@ -38,6 +41,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.5.4",
+    "rimraf": "^6.0.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.4"
   },

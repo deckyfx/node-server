@@ -40,6 +40,7 @@ export type RequestData = {
   handle?: RouteHandler;
   method: RequestMethod;
   path: string;
+  path_data?: Record<string, any>;
   qs?: Record<string, any>;
   session?: Session;
   status: number;
@@ -83,7 +84,7 @@ const request = new RequestHandler<RequestEvent>();
 
 export interface Route {
   path: string;
-  method: RequestMethod;
+  method?: RequestMethod;
   handler: RouteHandler;
 }
 
@@ -147,6 +148,10 @@ export function del(path: string, handler: RouteHandler) {
   router.push({ path, method: RequestMethod.DELETE, handler });
 }
 
+export function any(path: string, handler: RouteHandler) {
+  router.push({ path, handler });
+}
+
 export const server = http.createServer();
 
 export const template = renderTemplate;
@@ -191,62 +196,84 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     .join("assets", "public", req.url || "")
     .replace(`?${queryString}`, "");
 
-  const match = router.find(
-    (route) => req_route === route.path && req.method === route.method
-  );
+  const path_data: any = {};
+  const match = router.find((route) => {
+    const req_routes = req_route.split("/");
+    const path_routes = route.path.split("/");
+    console.log(req_routes, path_routes);
+
+    if (req_routes.length !== path_routes.length) {
+      return false;
+    }
+    const valid_path = path_routes.every((chunk, i) => {
+      if (chunk.startsWith(":") && chunk.length > 1) {
+        path_data[chunk.slice(1)] = req_routes[i];
+        return true;
+      }
+      return chunk === req_routes[i];
+    });
+    if (!valid_path) {
+      return false;
+    }
+    console.log(path_data);
+    if (!route.method) {
+      return true;
+    }
+    return req.method === route.method;
+  });
 
   if (match) {
     const cookies = new Cookie(req, res);
     const session = new Session(req, res);
+
+    const payload: RequestData = {
+      type: RequestType.ROUTE,
+      status: 200,
+      handle: match.handler,
+      method: req.method as RequestMethod,
+      qs: qs,
+      body: {},
+      cookies: cookies,
+      session: session,
+      path: req_route,
+      path_data: path_data,
+    };
+
     if (req.method === RequestMethod.GET) {
-      request.emit("ready", req, res, {
-        type: RequestType.ROUTE,
-        status: 200,
-        handle: match.handler,
-        method: req.method as RequestMethod,
-        qs: qs,
-        body: {},
-        cookies: cookies,
-        session: session,
-        path: req_route,
-      });
-    } else if (req.method === RequestMethod.POST) {
-      // Handle POST requests with form data
-      let body = "";
-      req.on("data", (chunk) => {
-        try {
-          body += chunk.toString();
-        } catch (error) {
-          request.emit("ready", req, res, {
-            type: RequestType.ERROR,
-            status: 400,
-            handle: match.handler,
-            method: req.method as RequestMethod,
-            qs: qs,
-            body: {},
-            cookies: cookies,
-            session: session,
-            path: req_route,
-          });
-          return;
-        }
-      });
-      req.on("end", () => {
-        const postData = parseQueryString(body);
-        delete postData[""];
-        request.emit("ready", req, res, {
-          status: 200,
-          type: RequestType.ROUTE,
-          handle: match.handler,
-          method: req.method as RequestMethod,
-          qs: qs,
-          body: postData,
-          cookies: cookies,
-          session: session,
-          path: req_route,
-        });
-      });
+      request.emit("ready", req, res, payload);
+      return;
     }
+
+    // * Handle any other Method requests with form data
+    let body = "";
+    req.on("data", (chunk) => {
+      try {
+        body += chunk.toString();
+      } catch (error: any) {
+        request.emit("ready", req, res, {
+          ...payload,
+          type: RequestType.ERROR,
+          error: error,
+        });
+        return;
+      }
+    });
+    req.on("end", () => {
+      const type = req.headers["content-type"];
+      let postData: Record<string, any> = {};
+      if (type?.startsWith("application/x-www-form-urlencoded")) {
+        postData = parseQueryString(body);
+        delete postData[""];
+      } else if (type?.startsWith("application/json;")) {
+        try {
+          postData = JSON.parse(body);
+        } catch (error) {}
+      }
+      request.emit("ready", req, res, {
+        ...payload,
+        body: postData,
+      });
+    });
     return;
   }
 

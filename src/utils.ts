@@ -263,6 +263,7 @@ export class Cookie {
   constructor(req: http.IncomingMessage, res: http.ServerResponse) {
     let cookie = req.headers.cookie;
     this._cookies = { _id: "" };
+
     if (cookie) {
       cookie = cookie.replace("; HttpOnly;", "; ");
       cookie.split(";").forEach((cookie) => {
