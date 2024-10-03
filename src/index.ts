@@ -186,6 +186,22 @@ export function up() {
   UNDER_MAINTENANCE = true;
 }
 
+let ErrorCallback: RouteHandler = () => Promise.resolve(true);
+let FileCallback: RouteHandler = () => Promise.resolve(true);
+let IndexCallback: RouteHandler = () => Promise.resolve(true);
+
+export function onError(callback: RouteHandler) {
+  ErrorCallback = callback;
+}
+
+export function onFile(callback: RouteHandler) {
+  FileCallback = callback;
+}
+
+export function onIndex(callback: RouteHandler) {
+  IndexCallback = callback;
+}
+
 function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   const queryString = req.url?.split("?")[1] || "";
   const qs = parseQueryString(queryString);
@@ -322,20 +338,32 @@ request.on(
   ) => {
     logWithId("ROUTING", `[${data.method}]`, data.type, data.status, data.path);
     switch (data.type) {
-      case RequestType.ERROR:
-        res.writeHead(data.status, { "Content-Type": "text/plain" });
-        res.end(data.error?.message || data.status);
+      case RequestType.ERROR: {
+        const block = await ErrorCallback(req, res, data);
+        if (!block) {
+          res.writeHead(data.status, { "Content-Type": "text/plain" });
+          res.end(data.error?.message || data.status);
+        }
         logWithId("done");
         return;
-      case RequestType.FILE:
-        serveStaticFile(res, data.path);
+      }
+      case RequestType.FILE: {
+        const block = await FileCallback(req, res, data);
+        if (!block) {
+          serveStaticFile(res, data.path);
+        }
         logWithId("done");
         return;
-      case RequestType.INDEX:
-        res.writeHead(302, { Location: "/index.html" });
-        res.end();
+      }
+      case RequestType.INDEX: {
+        const block = await IndexCallback(req, res, data);
+        if (!block) {
+          res.writeHead(302, { Location: "/index.html" });
+          res.end();
+        }
         logWithId("done");
         return;
+      }
       case RequestType.ROUTE:
         try {
           const { handle, ...omit } = data;
