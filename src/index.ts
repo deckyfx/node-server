@@ -162,7 +162,8 @@ export function text(res: http.ServerResponse, data: string) {
 }
 
 export function json(res: http.ServerResponse, data: any) {
-  text(res, JSON.stringify(data));
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(data));
 }
 
 export function redirect(res: http.ServerResponse, path: string) {
@@ -216,7 +217,6 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   const match = router.find((route) => {
     const req_routes = req_route.split("/");
     const path_routes = route.path.split("/");
-    console.log(req_routes, path_routes);
 
     if (req_routes.length !== path_routes.length) {
       return false;
@@ -231,7 +231,6 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     if (!valid_path) {
       return false;
     }
-    console.log(path_data);
     if (!route.method) {
       return true;
     }
@@ -277,10 +276,17 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     req.on("end", () => {
       const type = req.headers["content-type"];
       let postData: Record<string, any> = {};
-      if (type?.startsWith("application/x-www-form-urlencoded")) {
+      if (!type) {
+        request.emit("ready", req, res, {
+          ...payload,
+          body: postData,
+        });
+        return;
+      }
+      if (type.startsWith("application/x-www-form-urlencoded")) {
         postData = parseQueryString(body);
         delete postData[""];
-      } else if (type?.startsWith("application/json;")) {
+      } else if (type.startsWith("application/json")) {
         try {
           postData = JSON.parse(body);
         } catch (error) {}
