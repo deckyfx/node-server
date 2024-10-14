@@ -21,6 +21,7 @@ export const RequestMethod = {
   POST: "POST",
   PUT: "PUT",
   DELETE: "DELETE",
+  OPTIONS: "OPTIONS",
 } as const;
 
 export type RequestType = ObjectValues<typeof RequestType>;
@@ -148,6 +149,10 @@ export function del(path: string, handler: RouteHandler) {
   router.push({ path, method: RequestMethod.DELETE, handler });
 }
 
+export function option(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.OPTIONS, handler });
+}
+
 export function any(path: string, handler: RouteHandler) {
   router.push({ path, handler });
 }
@@ -169,6 +174,13 @@ export function json(res: http.ServerResponse, data: any) {
 export function redirect(res: http.ServerResponse, path: string) {
   res.writeHead(302, { Location: path });
   res.end();
+}
+
+export function cors(res: http.ServerResponse) {
+  res.setHeader("Access-Control-Allow-Origin", "*"); // Allow requests from any origin
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE"); // Allow these HTTP methods
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization"); // Allow these headers
+  res.setHeader("Access-Control-Max-Age", 3600); // Set cache duration for pre-flight responses
 }
 
 export function file(...paths: string[]) {

@@ -1,6 +1,6 @@
 {
   "name": "@decky.fx/node-server",
-  "version": "1.0.4-b",
+  "version": "1.0.5",
   "description": "A Zero Dependancy NodeJS Server",
   "main": "dist/index.js",
   "os": [
@@ -20,7 +20,7 @@
     "build": "rimraf ./dist && tsc",
     "dev": "ts-node-dev --poll example/index.ts",
     "push": "npm publish --access public",
-    "down": "npm unpublish @decky.fx/node-server@1.0.4-a",
+    "down": "npm unpublish @decky.fx/node-server@1.0.4-b",
     "pub": "yarn build && yarn push"
   },
   "files": [
