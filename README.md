@@ -7,11 +7,12 @@ This is a simple nodejs server, it has zero dependancy!
 ## Features
 
 - [x] zero dependancy
-- [x] basic routes handler
+- [x] basic route handler
 - [x] serve static files
 - [x] read request query string and post body
 - [x] basic cookies and session
 - [x] basic template enggine
+- [x] Handle POST Body for both JSON, multipart, and url-encoded
 
 ## Requirement
 
@@ -35,7 +36,7 @@ Check node version
 
 it should return
 
-`v20.16.0`
+`v20.17.0`
 
 Make sure yarn is installed, if not use
 
@@ -47,7 +48,7 @@ Install dependecies
 
 ## Latest Version
 
-1.0.0
+1.0.5
 
 ## Usage
 
@@ -57,20 +58,35 @@ Install with
 
 See example folder
 
-```// * Import
-const { server, get } = require("@decky.fx/node-server");
+```typescript
+import { server, any, onError, get, post, routes } from "../src/index";
 
-// * Add route
-get("/", async (req, res, data) => {
-  text(res, "OK");
+const hostname = "0.0.0.0";
+const port = 3000;
+
+any("/", async function _any(handle) {
+  handle.json({ result: "OK" });
   return true;
 });
 
-// * Start server
+post("/test", async function _post(handle) {
+  handle.json({ result: "OK" });
+  return true;
+});
+
+get("/html", async function _html(handle) {
+  handle.html(handle.readFile("assets", "public", "file.html"));
+  return true;
+});
+
+onError(async function _error(handle) {
+  const { req, res, ...data } = handle;
+  console.log(data);
+});
+
 server.listen(port, hostname, () => {
   console.log(`Server running at http://${hostname}:${port}/`);
 });
-
 ```
 
 ## API
@@ -81,19 +97,31 @@ The server object created by node:http
 
 ### get(path: string, handler: RouteHandler)
 
-Add get route
+Add GET route
 
 ### post(path: string, handler: RouteHandler)
 
-Add post route
+Add POST route
 
 ### put(path: string, handler: RouteHandler)
 
-Add put route
+Add PUT route
 
 ### del(path: string, handler: RouteHandler)
 
-Add delete route
+Add DELETE route
+
+### option(path: string, handler: RouteHandler)
+
+Add OPTIONS route
+
+### any(path: string, handler: RouteHandler)
+
+Add route catching any methods
+
+### route(path: string, handler: RouteHandler, method: Method = GET)
+
+Add route for method xxx
 
 ### up()
 
@@ -102,6 +130,34 @@ Flag the server as up
 ### down()
 
 Flag the server as down for maintenance
+
+### setCORS(flag: boolean)
+
+Flag CORS enabled / disabled, if `enabled`, response will send extra headers for CORS handler, and when adding POST route will also adds OPTIONS route to same path to handle `preflight request`
+
+### setPublicDir(...paths: string[])
+
+Set public dir to serve static files, `default` is `./public`
+
+### setUploadDir(...paths: string[]) {
+
+Set default upload dir, `default` is `./uploads`
+
+### onError(callback: RouteHandler)
+
+Add hooks when error happened during request route parsing
+
+### onFile(callback: RouteHandler)
+
+Add hooks that trigger before a default File handler triggered
+
+### onIndex(callback: RouteHandler)
+
+Add hooks that trigger before a default Index handler triggered
+
+### routes()
+
+Return current configured routes
 
 ### template(path: string, data: any): string
 
@@ -123,28 +179,66 @@ Send static file contents to connected client
 
 Redirect client to new path
 
-## RouteHandler: (req: http.IncomingMessage, res: http.ServerResponse, data: RequestData) => Promise<booelan>
+## RouteHandler: (handle: HTTPHandler) => Promise<booelan|void|null|undefined>
 
-The callback that called when route is handled
+The callback that called when a route is handled, starting from `1.0.5`, the callback only provide single argument, a `HTTPHandler` instance
 
-## RequestData
+## HTTPHandler
 
-Request data has the following properties
+The Handler data passed when trigger `RouteHandler`.
 
-```
-{
-  body?: Record<string, any>;
-  cookies?: Cookie;
-  error?: Error;
-  handle?: RouteHandler;
-  method: RequestMethod;
-  path: string;
-  qs?: Record<string, any>;
-  session?: Session;
-  status: number;
-  type: RequestType;
-}
-```
+The Handler would have the following `readonly` properties:
+
+- cookies?: Cookie
+- error?: Error
+- method: RequestMethod
+- path: string
+- path_data?: Record<string, any>
+- qs?: Record<string, any>
+- session?: Session
+- status: number
+- type: RequestType
+- req: http.IncomingMessage
+- res: http.ServerResponse
+
+The Handler would have the following methods:
+
+### text(data: any)
+
+Send and end request with text
+
+### json(data: any, status: number = 200)
+
+Send and end request with json data
+
+### html(data: string, status: number = 200)
+
+Send and end request with html string data
+
+### redirect(url: string, status: number = 302)
+
+Send and end request with redirect header
+
+### err(error: Error, status: number = 500)
+
+Send and end request with error
+
+### cors()
+
+Send headers for CORS
+
+### template(template: string, data?: any): string
+
+Process a template file and return the string result
+
+### readFile(...paths: string[])
+
+Read file as string data
+
+### sendFile(disposition: boolean = true, ...paths: string[])
+
+Send file response, as file download when `disposition` = `true`, or as common HTTP file response (eg: js, css, image)
+
 
 ## Cookie
 
@@ -185,3 +279,7 @@ remove a session
 ### clear()
 
 clear all sessions
+
+### Todos
+
+- [ ] Next idea

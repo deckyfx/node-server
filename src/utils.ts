@@ -1,4 +1,5 @@
 import http from "node:http";
+import path from "node:path";
 import fs from "node:fs";
 import { Buffer } from "node:buffer";
 import crypto from "node:crypto";
@@ -402,6 +403,58 @@ function combineArrayBuffers(buffers: ArrayBuffer[]): ArrayBuffer {
   }
 
   return combinedBuffer;
+}
+
+export function isFile(...paths: string[]) {
+  try {
+    fs.accessSync(path.join(...paths));
+    return true;
+  } catch (error: any) {
+    return false;
+  }
+}
+
+export const KnownMimes = {
+  ".txt": "text/plain",
+  ".html": "text/html",
+  ".css": "text/css",
+  ".js": "application/javascript",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".eot": "font/eot",
+  ".otf": "font/otf",
+  ".pdf": "application/pdf",
+  ".zip": "application/zip",
+  ".rar": "application/x-rar-compressed",
+  ".tar": "application/x-tar",
+  ".tgz": "application/x-gzip",
+  ".7z": "application/x-7z-compressed",
+  ".exe": "application/x-msdownload",
+  ".elf": "application/x-executable",
+  ".dmg": "application/x-apple-diskimage",
+  ".jar": "application/java-archive",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".flac": "audio/flac",
+  ".aac": "audio/aac",
+  ".mp4": "video/mp4",
+  ".avi": "video/x-msvideo",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".mkv": "video/x-matroska",
+} as const;
+
+export function getMimeType(...paths: string[]) {
+  const ext = path.extname(path.join(...paths)) as keyof typeof KnownMimes;
+  return KnownMimes[ext] || "application/octet-stream"; // Default to 'application/octet-stream' if not found
 }
 
 export function resolveFile(

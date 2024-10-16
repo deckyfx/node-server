@@ -1,11 +1,25 @@
 import http from "node:http";
 import path from "node:path";
+import fs from "node:fs";
 import EventEmitter from "node:events";
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import { Cookie, renderTemplate, resolveFile, Session } from "./utils";
+import {
+  Cookie,
+  getMimeType,
+  isFile,
+  renderTemplate,
+  resolveFile,
+  Session,
+} from "./utils";
 
 let UNDER_MAINTENANCE = false;
+
+let CORS_ENABLED = true;
+
+let PUBLIC_DIR = path.join(".", "public");
+
+let UPLOAD_DIR = path.join(".", "uploads");
 
 type ObjectValues<T> = T[keyof T];
 
@@ -28,12 +42,6 @@ export type RequestType = ObjectValues<typeof RequestType>;
 
 export type RequestMethod = ObjectValues<typeof RequestMethod>;
 
-export type RouteHandler = (
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  data: RequestData
-) => Promise<boolean | undefined | null | void>;
-
 export type RequestData = {
   body?: Record<string, any>;
   cookies?: Cookie;
@@ -47,6 +55,117 @@ export type RequestData = {
   status: number;
   type: RequestType;
 };
+
+export class HTTPHandler {
+  public readonly body?: Record<string, any>;
+  public readonly cookies?: Cookie;
+  public readonly error?: Error;
+  public readonly method: RequestMethod;
+  public readonly path: string;
+  public readonly path_data?: Record<string, any>;
+  public readonly qs?: Record<string, any>;
+  public readonly session?: Session;
+  public readonly status: number;
+  public readonly type: RequestType;
+
+  constructor(
+    public readonly req: http.IncomingMessage,
+    public readonly res: http.ServerResponse,
+    data: RequestData
+  ) {
+    this.body = data.body;
+    this.cookies = data.cookies;
+    this.error = data.error;
+    this.method = data.method;
+    this.path = data.path;
+    this.path_data = data.body;
+    this.qs = data.body;
+    this.session = data.session;
+    this.status = data.status;
+    this.type = data.type;
+  }
+
+  text(data: any) {
+    this.res.writeHead(200, { "Content-Type": "text/plain" });
+    this.res.end(data);
+  }
+
+  json(data: any, status: number = 200) {
+    this.res.writeHead(status, { "Content-Type": "application/json" });
+    this.res.end(JSON.stringify(data));
+  }
+
+  html(data: string, status: number = 200) {
+    this.res.writeHead(status, { "Content-Type": "text/html" });
+    this.res.end(data);
+  }
+
+  redirect(url: string, status: number = 302) {
+    this.res.writeHead(status, { Location: url });
+    this.res.end();
+  }
+
+  err(error: Error, status: number = 500) {
+    this.res.writeHead(status, { "Content-Type": "text/plain" });
+    this.res.end(error.message);
+  }
+
+  cors() {
+    this.res.setHeader("Access-Control-Allow-Origin", "*"); // Allow requests from any origin
+    this.res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS"
+    ); // Allow these HTTP methods
+    this.res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    ); // Allow these headers
+    this.res.setHeader("Access-Control-Max-Age", 3600); // Set cache duration for pre-flight responses
+  }
+
+  end(chunk?: any) {
+    this.res.end(chunk);
+  }
+
+  template(template: string, data?: any) {
+    return renderTemplate(template, data);
+  }
+
+  readFile(...paths: string[]) {
+    const data = resolveFile(path.join(...paths), "utf-8") as string | Error;
+    if (data instanceof Error) {
+      return "";
+    }
+    return data;
+  }
+
+  sendFile(disposition: boolean = true, ...paths: string[]) {
+    const filePath = path.join(...paths);
+    fs.stat(filePath, (err, stats) => {
+      if (err) {
+        this.err(new Error("File not found"), 404);
+        return;
+      }
+
+      const mimeType = getMimeType(filePath);
+      if (disposition) {
+        this.res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${path.basename(filePath)}"`
+        );
+      }
+      this.res.setHeader("Content-Type", mimeType);
+      this.res.setHeader("Content-Length", stats.size);
+
+      const readStream = fs.createReadStream(filePath);
+      readStream.pipe(this.res);
+    });
+  }
+}
+
+export type RouteHandler = (
+  handle: HTTPHandler
+) => Promise<boolean | undefined | null | void>;
 
 export interface RequestEvent {
   ready: [
@@ -93,17 +212,6 @@ const router: Route[] = [];
 
 const storage = new AsyncLocalStorage();
 
-function serveStaticFile(res: http.ServerResponse, filePath: string) {
-  const data = resolveFile(filePath);
-  if (data instanceof Error) {
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("File not found");
-    return;
-  }
-  res.writeHead(200, { "Content-Type": "text/html" }); // Adjust content type as needed
-  res.end(data);
-}
-
 function parseQueryString(queryString: string): Record<string, string> {
   const pairs = queryString.split("&");
   const result: Record<string, string> = {};
@@ -133,62 +241,12 @@ function logWithId(...msg: any[]) {
   );
 }
 
-export function get(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.GET, handler });
-}
-
-export function post(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.POST, handler });
-}
-
-export function put(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.PUT, handler });
-}
-
-export function del(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.DELETE, handler });
-}
-
-export function option(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.OPTIONS, handler });
-}
-
-export function any(path: string, handler: RouteHandler) {
-  router.push({ path, handler });
-}
-
-export const server = http.createServer();
-
-export const template = renderTemplate;
-
-export function text(res: http.ServerResponse, data: string) {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end(data);
-}
-
-export function json(res: http.ServerResponse, data: any) {
-  res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(data));
-}
-
-export function redirect(res: http.ServerResponse, path: string) {
-  res.writeHead(302, { Location: path });
-  res.end();
-}
-
-export function cors(res: http.ServerResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*"); // Allow requests from any origin
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE"); // Allow these HTTP methods
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization"); // Allow these headers
-  res.setHeader("Access-Control-Max-Age", 3600); // Set cache duration for pre-flight responses
-}
-
-export function file(...paths: string[]) {
-  const data = resolveFile(path.join(...paths), "utf-8") as string | Error;
-  if (data instanceof Error) {
-    return "";
+async function CORSHandler(handle: HTTPHandler) {
+  if (CORS_ENABLED) {
+    handle.cors();
   }
-  return data;
+  handle.end();
+  return true;
 }
 
 export function down() {
@@ -199,9 +257,83 @@ export function up() {
   UNDER_MAINTENANCE = true;
 }
 
-let ErrorCallback: RouteHandler = () => Promise.resolve(true);
-let FileCallback: RouteHandler = () => Promise.resolve(true);
-let IndexCallback: RouteHandler = () => Promise.resolve(true);
+export function setCORS(flag: boolean) {
+  CORS_ENABLED = flag;
+}
+
+export function setPublicDir(...paths: string[]) {
+  PUBLIC_DIR = path.join(...paths);
+}
+
+export function setUploadDir(...paths: string[]) {
+  UPLOAD_DIR = path.join(...paths);
+}
+
+export function get(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.GET, handler });
+}
+
+export function post(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.POST, handler });
+  if (CORS_ENABLED) {
+    router.push({ path, method: RequestMethod.OPTIONS, handler: CORSHandler });
+  }
+}
+
+export function put(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.PUT, handler });
+  if (CORS_ENABLED) {
+    router.push({ path, method: RequestMethod.OPTIONS, handler: CORSHandler });
+  }
+}
+
+export function del(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.DELETE, handler });
+  if (CORS_ENABLED) {
+    router.push({ path, method: RequestMethod.OPTIONS, handler: CORSHandler });
+  }
+}
+
+export function option(path: string, handler: RouteHandler) {
+  router.push({ path, method: RequestMethod.OPTIONS, handler });
+}
+
+export function any(path: string, handler: RouteHandler) {
+  router.push({ path, handler });
+}
+
+export function route(
+  path: string,
+  handler: RouteHandler,
+  method: RequestMethod = RequestMethod.GET
+) {
+  switch (method) {
+    case RequestMethod.GET:
+      get(path, handler);
+      break;
+    case RequestMethod.POST:
+      post(path, handler);
+      break;
+    case RequestMethod.PUT:
+      put(path, handler);
+      break;
+    case RequestMethod.DELETE:
+      del(path, handler);
+      break;
+    case RequestMethod.OPTIONS:
+      option(path, handler);
+      break;
+    default:
+      any(path, handler);
+      break;
+  }
+}
+
+export const server = http.createServer();
+
+let ErrorCallback: RouteHandler = () => Promise.resolve(false);
+let FileCallback: RouteHandler = () => Promise.resolve(false);
+let IndexCallback: RouteHandler = () => Promise.resolve(false);
 
 export function onError(callback: RouteHandler) {
   ErrorCallback = callback;
@@ -215,15 +347,15 @@ export function onIndex(callback: RouteHandler) {
   IndexCallback = callback;
 }
 
+export function routes() {
+  return router;
+}
+
 function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   const queryString = req.url?.split("?")[1] || "";
   const qs = parseQueryString(queryString);
   const req_route = req.url?.replace(`?${queryString}`, "") || "/";
   delete qs[""];
-
-  const filePath = path
-    .join("assets", "public", req.url || "")
-    .replace(`?${queryString}`, "");
 
   const path_data: any = {};
   const match = router.find((route) => {
@@ -272,10 +404,23 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     }
 
     // * Handle any other Method requests with form data
+    const type = req.headers["content-type"];
+    if (!type) {
+      request.emit("ready", req, res, {
+        ...payload,
+        body: {},
+      });
+      return;
+    }
     let body = "";
+    const chunks: Uint8Array[] = [];
     req.on("data", (chunk) => {
       try {
-        body += chunk.toString();
+        if (type.startsWith("multipart/form-data")) {
+          chunks.push(chunk);
+        } else {
+          body += chunk.toString();
+        }
       } catch (error: any) {
         request.emit("ready", req, res, {
           ...payload,
@@ -286,49 +431,118 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
       }
     });
     req.on("end", () => {
-      const type = req.headers["content-type"];
       let postData: Record<string, any> = {};
-      if (!type) {
+      if (type.startsWith("application/x-www-form-urlencoded")) {
+        postData = parseQueryString(body);
+        delete postData[""];
+        request.emit("ready", req, res, {
+          ...payload,
+          body: postData,
+        });
+        return;
+      } else if (type.startsWith("multipart/form-data")) {
+        const boundary = `--${type
+          .split("boundary=")[1]
+          .trim()
+          .replace(/\"/g, "")}`;
+        const data = Buffer.concat(chunks).toString();
+        const parts: string[] = [];
+
+        let part: string[] = [];
+        data.split("\r\n").forEach((line) => {
+          if (line === boundary) {
+            if (part.length > 0) {
+              parts.push(part.join("\r\n"));
+              part = [];
+            }
+            return;
+          }
+          part.push(line);
+        });
+        parts.push(part.join("\r\n"));
+
+        const uploadedFiles: { file: string; error?: Error }[] = [];
+
+        function parseMultiParts() {
+          if (i > parts.length - 1) {
+            postData.files = uploadedFiles;
+            request.emit("ready", req, res, {
+              ...payload,
+              body: postData,
+            });
+            return;
+          }
+
+          const part = parts[i];
+          const name = part.match(/\sname="?([^\"\;\r\n]+)"?\;?/);
+          const disposition = part.match(/\sfilename="?([^\"\;\r\n]+)"?\;?/);
+          const content = part.split("\r\n\r\n")[1];
+
+          if (disposition) {
+            const filename = name?.[1] || new Date().getTime().toString();
+            const filePath = `${UPLOAD_DIR}/${filename}`; // Replace with your desired upload directory
+
+            fs.writeFile(filePath, content, (err) => {
+              if (err) {
+                console.error(err);
+                uploadedFiles.push({ file: filePath, error: err });
+              } else {
+                uploadedFiles.push({ file: filePath });
+              }
+
+              i++;
+              parseMultiParts();
+            });
+          } else {
+            // This is a non-file part (e.g., text field)
+            const varname = name?.[1] || "";
+            const value = content.trim();
+
+            if (varname) {
+              postData[varname] = value;
+            }
+
+            i++;
+            parseMultiParts();
+          }
+        }
+
+        let i = 0;
+        parseMultiParts();
+      } else if (type.startsWith("application/json")) {
+        try {
+          postData = JSON.parse(body);
+        } catch (error) {}
         request.emit("ready", req, res, {
           ...payload,
           body: postData,
         });
         return;
       }
-      if (type.startsWith("application/x-www-form-urlencoded")) {
-        postData = parseQueryString(body);
-        delete postData[""];
-      } else if (type.startsWith("application/json")) {
-        try {
-          postData = JSON.parse(body);
-        } catch (error) {}
-      }
-      request.emit("ready", req, res, {
-        ...payload,
-        body: postData,
-      });
     });
     return;
   }
 
-  const content = resolveFile(filePath);
-  if (content instanceof Error) {
+  const public_file = path.join(PUBLIC_DIR, req_route);
+
+  if (isFile(public_file)) {
     request.emit("ready", req, res, {
-      status: 404,
+      status: 200,
       method: req.method as RequestMethod,
-      error: new Error("404"),
-      type: RequestType.ERROR,
-      path: req_route || filePath,
+      type: RequestType.FILE,
+      path: public_file,
     });
     return;
   }
 
   request.emit("ready", req, res, {
-    status: 200,
+    status: 404,
     method: req.method as RequestMethod,
-    type: RequestType.FILE,
-    path: filePath,
+    error: new Error("404"),
+    type: RequestType.ERROR,
+    path: req_route || public_file,
   });
+  return;
 
   // * For now its not support directory indexing
 }
@@ -336,7 +550,8 @@ function HandleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
 let idSeq = 0;
 server.on("request", (req, res) => {
   if (UNDER_MAINTENANCE) {
-    text(res, "Under Maintenance");
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Under Maintenance");
     return;
   }
   storage.run(idSeq++, () => {
@@ -355,26 +570,33 @@ request.on(
     data: RequestData
   ) => {
     logWithId("ROUTING", `[${data.method}]`, data.type, data.status, data.path);
+    const { handle, ...omit } = data;
+    const httpHandler = new HTTPHandler(req, res, omit);
+    if (CORS_ENABLED) {
+      httpHandler.cors();
+    }
     switch (data.type) {
       case RequestType.ERROR: {
-        const block = await ErrorCallback(req, res, data);
+        const block = await ErrorCallback(httpHandler);
         if (!block) {
-          res.writeHead(data.status, { "Content-Type": "text/plain" });
-          res.end(data.error?.message || data.status);
+          httpHandler.err(
+            data.error || new Error("Unknown Error"),
+            data.status
+          );
         }
         logWithId("done");
         return;
       }
       case RequestType.FILE: {
-        const block = await FileCallback(req, res, data);
+        const block = await FileCallback(httpHandler);
         if (!block) {
-          serveStaticFile(res, data.path);
+          httpHandler.sendFile(false, httpHandler.path);
         }
         logWithId("done");
         return;
       }
       case RequestType.INDEX: {
-        const block = await IndexCallback(req, res, data);
+        const block = await IndexCallback(httpHandler);
         if (!block) {
           res.writeHead(302, { Location: "/index.html" });
           res.end();
@@ -384,15 +606,13 @@ request.on(
       }
       case RequestType.ROUTE:
         try {
-          const { handle, ...omit } = data;
-          const result = await handle?.(req, res, omit);
+          const result = await handle?.(httpHandler);
           if (!result) {
             // * Do something?
           }
           logWithId("done");
         } catch (e: any) {
-          res.writeHead(500, { "Content-Type": "text/plain" });
-          res.end(e.message || "Internal Server Error");
+          httpHandler.err(e || new Error("Internal Server Error"), 500);
         }
         return;
     }
