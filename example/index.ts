@@ -1,5 +1,8 @@
 import { server, any, onError, get, post, routes } from "../src/index";
 
+import fs from "node:fs";
+import path from "node:path";
+
 const hostname = "0.0.0.0";
 const port = 3000;
 
@@ -9,12 +12,29 @@ any("/", async function _any(handle) {
 });
 
 post("/test", async function _post(handle) {
-  handle.json({ result: "OK", ...(handle.body) });
+  handle.json({ result: "OK", ...handle.body });
   return true;
 });
 
 get("/html", async function _html(handle) {
   handle.html(handle.readFile("assets", "public", "file.html"));
+  return true;
+});
+
+get("/apk", async function _html(handle) {
+  fs.readdir("./public", (err, files) => {
+    const found = files.some((file) => {
+      const ext = path.extname(file);
+      if (ext === ".apk") {
+        handle.sendFile(true, "public", file);
+        return true;
+      }
+      return false;
+    });
+    if (!found) {
+      handle.json({ error: "File not found" });
+    }
+  });
   return true;
 });
 

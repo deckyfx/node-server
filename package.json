@@ -1,6 +1,6 @@
 {
   "name": "@decky.fx/node-server",
-  "version": "1.0.5",
+  "version": "1.0.5-b",
   "description": "A Zero Dependancy NodeJS Server",
   "main": "dist/index.js",
   "os": [
@@ -12,7 +12,7 @@
   "engines": {
     "npm": ">=10.8.1",
     "node": "Please use yarn",
-    "yarn": "^4.5.0"
+    "yarn": ">=4.5.0"
   },
   "packageManager": "yarn@4.5.0",
   "engineStrict": true,
