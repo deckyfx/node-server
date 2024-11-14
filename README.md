@@ -48,7 +48,7 @@ Install dependecies
 
 ## Latest Version
 
-1.0.5
+1.0.6
 
 ## Usage
 
@@ -139,7 +139,7 @@ Flag CORS enabled / disabled, if `enabled`, response will send extra headers for
 
 Set public dir to serve static files, `default` is `./public`
 
-### setUploadDir(...paths: string[]) {
+### setUploadDir(...paths: string[])
 
 Set default upload dir, `default` is `./uploads`
 

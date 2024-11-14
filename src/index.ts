@@ -78,8 +78,8 @@ export class HTTPHandler {
     this.error = data.error;
     this.method = data.method;
     this.path = data.path;
-    this.path_data = data.body;
-    this.qs = data.body;
+    this.path_data = data.path_data;
+    this.qs = data.qs;
     this.session = data.session;
     this.status = data.status;
     this.type = data.type;

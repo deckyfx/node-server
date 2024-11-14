@@ -38,6 +38,11 @@ get("/apk", async function _html(handle) {
   return true;
 });
 
+get("/:a/x", async function _html(handle) {
+  handle.json(handle.qs);
+  return true;
+});
+
 onError(async function _error(handle) {
   const { req, res, ...data } = handle;
   console.log(data);
