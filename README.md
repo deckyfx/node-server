@@ -48,7 +48,7 @@ Install dependecies
 
 ## Latest Version
 
-1.0.7
+1.0.7-c
 
 ## Usage
 
