@@ -761,15 +761,17 @@ export async function HTMLDocumentation(handler: HTTPHandler) {
     }
     return `
       <h3>${title}</h3>
-      ${Object.keys(data).map((key) => {
-        const info = data[key];
-        return `
+      ${Object.keys(data)
+        .map((key) => {
+          const info = data[key];
+          return `
         <div>
           <label style="display: block;">${key} - ${info}</label>
           <input type="text" name="${prefix}${key}" />
         </div>
       `;
-      })}
+        })
+        .join("\n")}
     `;
   }
   const route_docs = getRoutes()
@@ -811,7 +813,7 @@ export async function HTMLDocumentation(handler: HTTPHandler) {
       <button style="margin-top: 8px;" onclick="blankResponse(${index});">CLEAR</button>
         </form>
         <div id="response-${index}" style="border: 1px solid gray; padding: 8px; margin-top: 8px;">
-          <pre id="response-body-${index}">
+          <pre id="response-body-${index}" style="overflow: auto;">
           </pre>
         </div>
       </div>
