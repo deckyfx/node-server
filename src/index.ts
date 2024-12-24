@@ -42,29 +42,59 @@ export type RequestType = ObjectValues<typeof RequestType>;
 
 export type RequestMethod = ObjectValues<typeof RequestMethod>;
 
-export type RequestData = {
-  body?: Record<string, any>;
-  cookies?: Cookie;
+export type RouteDoc = {
+  route?: string;
+  method?: string;
+  description?: string;
+  params?: Record<string, string>;
+  query?: Record<string, string>;
+  body?: Record<string, string>;
+  response?: string;
+};
+
+/*
+ * RequestData
+ * @type [P] Post Data
+ * @type [A] Path Data
+ * @type [Q] Query String Data
+ * @type [Q] Cookie Data
+ * @type [Q] Session Data
+ */
+export type RequestData<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+> = {
+  body?: P;
+  cookies?: Cookie<C>;
   error?: Error;
-  handle?: RouteHandler;
+  handle?: RouteHandler<P, A, Q>;
   method: RequestMethod;
   path: string;
-  path_data?: Record<string, any>;
-  qs?: Record<string, any>;
-  session?: Session;
+  path_data?: A;
+  qs?: Q;
+  session?: Session<S>;
   status: number;
   type: RequestType;
 };
 
-export class HTTPHandler {
-  public readonly body?: Record<string, any>;
-  public readonly cookies?: Cookie;
+export class HTTPHandler<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+> {
+  public readonly body?: P;
+  public readonly cookies?: Cookie<C>;
   public readonly error?: Error;
   public readonly method: RequestMethod;
   public readonly path: string;
-  public readonly path_data?: Record<string, any>;
-  public readonly qs?: Record<string, any>;
-  public readonly session?: Session;
+  public readonly path_data?: A;
+  public readonly qs?: Q;
+  public readonly session?: Session<S>;
   public readonly status: number;
   public readonly type: RequestType;
 
@@ -73,14 +103,14 @@ export class HTTPHandler {
     public readonly res: http.ServerResponse,
     data: RequestData
   ) {
-    this.body = data.body;
-    this.cookies = data.cookies;
+    this.body = data.body as P;
+    this.cookies = data.cookies as Cookie<C>;
     this.error = data.error;
     this.method = data.method;
     this.path = data.path;
-    this.path_data = data.path_data;
-    this.qs = data.qs;
-    this.session = data.session;
+    this.path_data = data.path_data as A;
+    this.qs = data.qs as Q;
+    this.session = data.session as Session<S>;
     this.status = data.status;
     this.type = data.type;
   }
@@ -163,8 +193,14 @@ export class HTTPHandler {
   }
 }
 
-export type RouteHandler = (
-  handle: HTTPHandler
+export type RouteHandler<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+> = (
+  handle: HTTPHandler<P, A, Q, C, S>
 ) => Promise<boolean | undefined | null | void>;
 
 export interface RequestEvent {
@@ -202,10 +238,17 @@ export class RequestHandler<TEvents extends Record<string, any>> {
 
 const request = new RequestHandler<RequestEvent>();
 
-export interface Route {
+export interface Route<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+> {
   path: string;
   method?: RequestMethod;
-  handler: RouteHandler;
+  handler: RouteHandler<P, A, Q, C, S>;
+  docs?: RouteDoc;
 }
 
 const router: Route[] = [];
@@ -269,62 +312,130 @@ export function setUploadDir(...paths: string[]) {
   UPLOAD_DIR = path.join(...paths);
 }
 
-export function get(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.GET, handler });
+export function get<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(path: string, handler: RouteHandler<P, A, Q, C, S>, docs?: RouteDoc) {
+  router.push({
+    path,
+    method: RequestMethod.GET,
+    handler: handler as any,
+    docs,
+  });
 }
 
-export function post(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.POST, handler });
+export function post<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(path: string, handler: RouteHandler<P, A, Q, C, S>, docs?: RouteDoc) {
+  router.push({
+    path,
+    method: RequestMethod.POST,
+    handler: handler as any,
+    docs,
+  });
   if (CORS_ENABLED) {
     router.push({ path, method: RequestMethod.OPTIONS, handler: CORSHandler });
   }
 }
 
-export function put(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.PUT, handler });
+export function put<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(path: string, handler: RouteHandler<P, A, Q, C, S>, docs?: RouteDoc) {
+  router.push({
+    path,
+    method: RequestMethod.PUT,
+    handler: handler as any,
+    docs,
+  });
   if (CORS_ENABLED) {
     router.push({ path, method: RequestMethod.OPTIONS, handler: CORSHandler });
   }
 }
 
-export function del(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.DELETE, handler });
+export function del<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(path: string, handler: RouteHandler<P, A, Q, C, S>, docs?: RouteDoc) {
+  router.push({
+    path,
+    method: RequestMethod.DELETE,
+    handler: handler as any,
+    docs,
+  });
   if (CORS_ENABLED) {
     router.push({ path, method: RequestMethod.OPTIONS, handler: CORSHandler });
   }
 }
 
-export function option(path: string, handler: RouteHandler) {
-  router.push({ path, method: RequestMethod.OPTIONS, handler });
+export function option<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(path: string, handler: RouteHandler<P, A, Q, C, S>, docs?: RouteDoc) {
+  router.push({
+    path,
+    method: RequestMethod.OPTIONS,
+    handler: handler as any,
+    docs,
+  });
 }
 
-export function any(path: string, handler: RouteHandler) {
-  router.push({ path, handler });
+export function any<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(path: string, handler: RouteHandler<P, A, Q, C, S>, docs?: RouteDoc) {
+  router.push({ path, handler: handler as any, docs });
 }
 
-export function route(
+export function route<
+  P extends Record<string, any> = {},
+  A extends Record<string, any> = {},
+  Q extends Record<string, any> = {},
+  C extends Record<string, any> = {},
+  S extends Record<string, any> = {}
+>(
   path: string,
-  handler: RouteHandler,
-  method: RequestMethod = RequestMethod.GET
+  handler: RouteHandler<P, A, Q, C, S>,
+  method: RequestMethod = RequestMethod.GET,
+  docs?: RouteDoc
 ) {
   switch (method) {
     case RequestMethod.GET:
-      get(path, handler);
+      get(path, handler, docs);
       break;
     case RequestMethod.POST:
-      post(path, handler);
+      post(path, handler, docs);
       break;
     case RequestMethod.PUT:
-      put(path, handler);
+      put(path, handler, docs);
       break;
     case RequestMethod.DELETE:
-      del(path, handler);
+      del(path, handler, docs);
       break;
     case RequestMethod.OPTIONS:
-      option(path, handler);
+      option(path, handler, docs);
       break;
     default:
-      any(path, handler);
+      any(path, handler, docs);
       break;
   }
 }
@@ -347,7 +458,7 @@ export function onIndex(callback: RouteHandler) {
   IndexCallback = callback;
 }
 
-export function routes() {
+export function getRoutes() {
   return router;
 }
 
@@ -618,3 +729,150 @@ request.on(
     }
   }
 );
+
+export function generateRouteDoc(route: Route) {
+  const { path, method, docs } = route;
+  return {
+    ...docs,
+    route: path,
+    method: method,
+  };
+}
+
+export async function HTMLDocumentation(handler: HTTPHandler) {
+  function renderInputs(
+    title: string,
+    data: Record<string, string> | undefined
+  ) {
+    if (!data) {
+      return "";
+    }
+    let prefix = "input-";
+    switch (title) {
+      case "Path Params":
+        prefix = "path-";
+        break;
+      case "Queries":
+        prefix = "query-";
+        break;
+      case "Pos Bodies":
+        prefix = "body-";
+        break;
+    }
+    return `
+      <h3>${title}</h3>
+      ${Object.keys(data).map((key) => {
+        const info = data[key];
+        return `
+        <div>
+          <label style="display: block;">${key} - ${info}</label>
+          <input type="text" name="${prefix}${key}" />
+        </div>
+      `;
+      })}
+    `;
+  }
+  const route_docs = getRoutes()
+    .map(generateRouteDoc)
+    .map((doc, index) => {
+      return `
+    <div style="background-color: ${
+      index % 2 == 0 ? "khaki" : "lavender"
+    }; margin: 8px; padding: 8px;">
+      <h2 style="display: inline-block;width: 200px;padding: 0;margin: 0;">${
+        doc.method || "*"
+      }</h2> 
+      <h2 style="display: inline-block;width: 200px;padding: 0;margin: 0;">${
+        doc.route
+      }</h2>
+      <div>
+        ${
+          doc.description ? `<h3>Description</h3><p>${doc.description}</p>` : ""
+        }
+        <form id="form-${index}" onsubmit="event.preventDefault(); return false;">
+          ${renderInputs("Path Params", doc.params)}
+          ${renderInputs("Queries", doc.query)}
+          ${renderInputs("Pos Bodies", doc.body)}
+          ${doc.response ? `<h3>Response</h3><p>${doc.response}</p>` : ""}
+          <button style="margin-top: 8px; margin-right: 8px;" onclick="sendForm(${index}, '${
+        doc.route
+      }', '${doc.method || RequestMethod.GET}');">SEND</button>
+      <button style="margin-top: 8px;" onclick="blankResponse(${index});">CLEAR</button>
+        </form>
+        <div id="response-${index}" style="border: 1px solid gray; padding: 8px; margin-top: 8px;">
+          <pre id="response-body-${index}">
+          </pre>
+        </div>
+      </div>
+    </div>
+    `;
+    });
+
+  const contents = `
+  <html>
+  <head>
+    <title>Routes Documentation</title>
+    <script>
+      async function sendForm(index, route, method) {
+        const form = document.getElementById("form-" + index);
+        const responseEL = document.getElementById("response-body-" + index);
+        const inputs = Array.from(form.querySelectorAll("input"));
+
+        const bodies = inputs.filter((x) => x.name.startsWith("body-"));
+        const body = {};
+        bodies.forEach((x) => {
+          body[x.name.replace("body-", "")] = x.value;
+        });
+
+        const params = inputs.filter((x) => x.name.startsWith("path-"));
+        params.forEach((x) => {
+          const name = x.name.replace("path-", "");
+          const value =  x.value;
+          route = route.replace(":" + name, value);
+        });
+
+        const queries = inputs.filter((x) => x.name.startsWith("query-"));
+        const query = {};
+        queries.forEach((x) => {
+          query[x.name.replace("query-", "")] = x.value;
+        });
+        if (queries.length > 0) {
+          route += '?' + new URLSearchParams(query).toString()
+        }
+        
+        const response = await fetch(route, {
+          method: method,
+          body: method === "GET" || method === "HEAD" ? undefined : JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const text = await response.text();
+        try {
+          const json = JSON.parse(text);
+          responseEL.innerText = JSON.stringify(json, null, 2);
+        } catch (e) {
+          responseEL.innerText = text;
+        }
+      };
+
+      function blankResponse(index) {
+        const responseEL = document.getElementById("response-body-" + index);
+        const form = document.getElementById("form-" + index);
+        const inputs = Array.from(form.querySelectorAll("input"));
+        responseEL.innerText = '';
+        inputs.forEach((x) => {
+          x.value = '';
+        })
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Routes Documentation</h1>
+    ${route_docs.join("\n")}
+  </body>
+  </html>
+`;
+  handler.html(contents, 200);
+  return Promise.resolve(true);
+}

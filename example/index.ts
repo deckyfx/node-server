@@ -1,4 +1,11 @@
-import { server, any, onError, get, post, routes } from "../src/index";
+import {
+  server,
+  any,
+  onError,
+  get,
+  post,
+  HTMLDocumentation,
+} from "../src/index";
 
 import fs from "node:fs";
 import path from "node:path";
@@ -11,10 +18,20 @@ any("/", async function _any(handle) {
   return true;
 });
 
-post("/test", async function _post(handle) {
-  handle.json({ result: "OK", ...handle.body });
-  return true;
-});
+post(
+  "/test",
+  async function _post(handle) {
+    console.log(handle.body);
+    handle.json({ result: "OK", ...handle.body });
+    return true;
+  },
+  {
+    description: "This is any route to trap all incoming request",
+    body: {
+      hello: "This is a body",
+    },
+  }
+);
 
 get("/html", async function _html(handle) {
   handle.html(handle.readFile("assets", "public", "file.html"));
@@ -38,10 +55,24 @@ get("/apk", async function _html(handle) {
   return true;
 });
 
-get("/:a/x", async function _html(handle) {
-  handle.json(handle.qs);
-  return true;
-});
+get(
+  "/:a/x",
+  async function _html(handle) {
+    handle.json({ ...handle.qs, ...handle.path_data });
+    return true;
+  },
+  {
+    description: "This is any route to trap all incoming request",
+    params: {
+      a: "Test Path Data",
+    },
+    query: {
+      b: "Test Params",
+    },
+  }
+);
+
+get("/docs", HTMLDocumentation);
 
 onError(async function _error(handle) {
   const { req, res, ...data } = handle;

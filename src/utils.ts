@@ -252,27 +252,26 @@ function generateUniqueId() {
   return crypto.randomBytes(16).toString("hex");
 }
 
-export type BasicCookie = {
+export type BasicCookie<T extends Record<string, any> = {}> = T & {
   _id: string;
-
-  [key: string]: any;
 };
 
-export class Cookie {
-  private _cookies: BasicCookie;
+export class Cookie<T extends Record<string, any> = {}> {
+  private _cookies: BasicCookie<T>;
 
   constructor(req: http.IncomingMessage, res: http.ServerResponse) {
     let cookie = req.headers.cookie;
-    this._cookies = { _id: "" };
+    this._cookies = { _id: "" } as BasicCookie<T>;
 
     if (cookie) {
       cookie = cookie.replace("; HttpOnly;", "; ");
       cookie.split(";").forEach((cookie) => {
-        const [key, value] = cookie.trim().split("=");
-        if (["SameSite"].includes(key)) {
+        const [_key, value] = cookie.trim().split("=");
+        const key = _key as keyof BasicCookie<T>;
+        if (["SameSite"].includes(key as any)) {
           return;
         }
-        this._cookies[key] = decodeURIComponent(value);
+        (this._cookies as any)[key] = decodeURIComponent(value);
       });
       if (!this._cookies._id) {
         this._cookies._id = generateUniqueId();
@@ -281,23 +280,23 @@ export class Cookie {
     }
   }
 
-  get<T extends any = BasicCookie>() {
-    return this._cookies as T;
+  get() {
+    return this._cookies as unknown as BasicCookie<T>;
   }
 
   set(res: http.ServerResponse, name: string, value: any) {
-    this._cookies[name] = value.toString();
+    (this._cookies as any)[name] = value.toString();
     return this.write(res);
   }
 
   remove(res: http.ServerResponse, name: string) {
-    delete this._cookies[name];
+    delete (this._cookies as any)[name];
     return this.write(res);
   }
 
   clear(res: http.ServerResponse) {
     Object.keys(this._cookies).forEach((key) => {
-      delete this._cookies[key];
+      delete (this._cookies as any)[key];
     });
     return this.write(res);
   }
@@ -317,31 +316,28 @@ export class Cookie {
 }
 
 class Sessions {
-  private _sessions: { [key: string]: BasicCookie } = {};
+  private _sessions: Record<string, Session> = {};
 
   private static instance: Sessions | null = null;
 
   constructor() {}
 
-  get<T extends any = BasicCookie>(
+  get<T extends Record<string, object> = {}>(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ) {
-    const cookies = new Cookie(req, res).get<{
-      _id: string;
-      [key: string]: any;
-    }>();
-    const key = cookies._id;
+    const cookies = new Cookie(req, res).get();
+    const key = cookies._id as keyof Record<string, Session>;
     if (!this._sessions[key]) {
-      this._sessions[key] = {
+      (this._sessions as any)[key] = {
         _id: key,
       };
     }
-    return this._sessions[key] as T;
+    return (this._sessions as any)[key] as T;
   }
 
-  set(_id: string, data: any) {
-    this._sessions[_id] = data;
+  set(_id: string, data: Session) {
+    (this._sessions as any)[_id] = data;
   }
 
   public static getInstance(): Sessions {
@@ -354,28 +350,28 @@ class Sessions {
 
 export const SessionManager = Sessions.getInstance();
 
-export class Session {
+export class Session<T extends Record<string, any> = {}> {
   private readonly _id: string;
-  private _session: Record<string, any>;
+  private _session: T;
 
   constructor(req: http.IncomingMessage, res: http.ServerResponse) {
-    this._session = SessionManager.get<BasicCookie>(req, res);
+    this._session = SessionManager.get<T>(req, res);
     this._id = this._session._id;
   }
 
-  get<T extends any = BasicCookie>() {
-    return this._session as T;
+  get<K = T>() {
+    return this._session as unknown as K;
   }
 
-  set(name: string, value: any) {
+  set(name: keyof T, value: any) {
     this._session[name] = value.toString();
-    SessionManager.set(this._id, this._session);
+    SessionManager.set(this._id, this._session as any);
     return this;
   }
 
-  remove(name: string) {
+  remove(name: keyof T) {
     delete this._session[name];
-    SessionManager.set(this._id, this._session);
+    SessionManager.set(this._id, this._session as any);
     return this;
   }
 
@@ -383,7 +379,7 @@ export class Session {
     Object.keys(this._session).forEach((key) => {
       delete this._session[key];
     });
-    SessionManager.set(this._id, this._session);
+    SessionManager.set(this._id, this._session as any);
     return this;
   }
 }
