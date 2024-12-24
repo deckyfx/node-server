@@ -1,6 +1,6 @@
 {
   "name": "@decky.fx/node-server",
-  "version": "1.0.7-a",
+  "version": "1.0.7-b",
   "description": "A Zero Dependancy NodeJS Server",
   "main": "dist/index.js",
   "os": [

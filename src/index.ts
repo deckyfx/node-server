@@ -755,7 +755,7 @@ export async function HTMLDocumentation(handler: HTTPHandler) {
       case "Queries":
         prefix = "query-";
         break;
-      case "Pos Bodies":
+      case "Post Bodies":
         prefix = "body-";
         break;
     }
