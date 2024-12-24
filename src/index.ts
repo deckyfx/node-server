@@ -792,7 +792,18 @@ export async function HTMLDocumentation(handler: HTTPHandler) {
         <form id="form-${index}" onsubmit="event.preventDefault(); return false;">
           ${renderInputs("Path Params", doc.params)}
           ${renderInputs("Queries", doc.query)}
-          ${renderInputs("Pos Bodies", doc.body)}
+          ${renderInputs("Post Bodies", doc.body)}
+
+          <h3>Headers</h3>
+          <div id="headers-${index}">
+            <div id="header-${index}-0">
+              <input type="text" name="header-${index}-0-name" value="content-type"/>
+              <input type="text" name="header-${index}-0-value" value="application/json"/>
+              <button onclick="addHeader(${index});">&nbsp;+&nbsp;</button>
+              <button onclick="removeHeader(${index}, 0);">&nbsp;-&nbsp;</button>
+            </div>
+          </div>
+
           ${doc.response ? `<h3>Response</h3><p>${doc.response}</p>` : ""}
           <button style="margin-top: 8px; margin-right: 8px;" onclick="sendForm(${index}, '${
         doc.route
@@ -839,12 +850,29 @@ export async function HTMLDocumentation(handler: HTTPHandler) {
         if (queries.length > 0) {
           route += '?' + new URLSearchParams(query).toString()
         }
+
+        const headersContainer = document.getElementById("headers-" + index);
+        const headers = {};
+
+        // Iterate over each header element within the container
+        const headerElements = headersContainer.querySelectorAll('div[id^="header-"]');
+        headerElements.forEach(headerElement => {
+          const headerNameInput = headerElement.querySelector('input[name$="-name"]');
+          const headerValueInput = headerElement.querySelector('input[name$="-value"]');
+
+          if (headerNameInput && headerValueInput) {
+            const headerName = headerNameInput.value;
+            const headerValue = headerValueInput.value;
+            headers[headerName] = headerValue;
+          }
+        });
         
         const response = await fetch(route, {
           method: method,
           body: method === "GET" || method === "HEAD" ? undefined : JSON.stringify(body),
           headers: {
             "Content-Type": "application/json",
+            ...headers,
           },
         });
         const text = await response.text();
@@ -864,6 +892,58 @@ export async function HTMLDocumentation(handler: HTTPHandler) {
         inputs.forEach((x) => {
           x.value = '';
         })
+      }
+
+      function addHeader(index) {
+        const form = document.getElementById("form-" + index);
+        const headersWrapper = document.getElementById("headers-" + index);
+        const lastHeaderId = headersWrapper.lastElementChild.id; // Get ID of last header 
+
+        // Extract the last number from the ID
+        const lastHeaderIndex = parseInt(lastHeaderId.split('-')[2]);
+
+        // Create a new header with the next index
+        const newHeaderIndex = lastHeaderIndex + 1;
+        const newHeaderId = "header-" + index + "-" + newHeaderIndex;
+        const newHeader = document.createElement('div');
+        newHeader.id = newHeaderId;
+
+        // Create input elements for the new header
+        const nameInput = document.createElement('input');
+        nameInput.type = "text";
+        nameInput.name = "header-" + index + "-" + newHeaderIndex + "-name";
+
+        const valueInput = document.createElement('input');
+        valueInput.type = "text";
+        valueInput.name = "header-" + index + "-" + newHeaderIndex + "-value";
+
+        // Create buttons for the new header
+        const addButton = document.createElement('button');
+        addButton.innerHTML = "&nbsp;+&nbsp;";
+        addButton.onclick = () => addHeader(index); 
+
+        const removeButton = document.createElement('button');
+        removeButton.innerHTML = "&nbsp;-&nbsp;";
+        removeButton.onclick = () => removeHeader(index, newHeaderIndex); 
+
+        // Append elements to the new header
+        newHeader.appendChild(nameInput);
+        newHeader.appendChild(valueInput);
+        newHeader.appendChild(addButton);
+        newHeader.appendChild(removeButton);
+
+        // Append the new header to the container
+        headersWrapper.appendChild(newHeader);
+      }
+
+      function removeHeader(index, index2) {
+        const form = document.getElementById("form-" + index);
+        const headersWrapper = document.getElementById("headers-" + index);
+        const children = Array.from(headersWrapper.children);
+        const child = children[index2];
+        if (child) {
+          headersWrapper.removeChild(child);
+        }
       }
     </script>
   </head>
